@@ -1,0 +1,22 @@
+{
+  "name": "RubyScan – Retro Find in Page",
+  "description": "Replaces Ctrl+F with a ruby-red scanning animation that highlights matches in a retro hacker style.",
+  "version": "0.1.1",
+  "manifest_version": 3,
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_title": "RubyScan"
+  },
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content-script.js"],
+      "css": ["src/searchbox.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html"
+}
