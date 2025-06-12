@@ -1,17 +1,26 @@
-# RubyScan – Skeleton
+# RubyScan – Milestone 1 (Scan Bar)
 
-> The bare-bones Chrome extension that intercepts **Ctrl + F** and shows a custom search box. Scanning effect will be added in later milestones.
+Version **0.2.0** introduces the ruby scan animation:
 
-## Install (Dev)
+- **Ctrl+F** → RubyScan input.
+- Press **Enter** → horizontal scan bar sweeps the viewport.
+- Every word flashes ruby as line passes.
+- Matching words remain glowing.
 
-1. Clone or download this repository.
-2. Open Chrome and navigate to **chrome://extensions**.
-3. Enable **Developer mode**.
-4. Click **Load unpacked** and select the project root folder (`rubyscan`).
-5. Visit any page, press **Ctrl+F** – the custom black/red search box should appear top‑right.
+## Install / Reload
+
+1. Open **chrome://extensions**.
+2. _If already installed_ → click **Refresh** on RubyScan.
+3. _New install_ → **Load unpacked** → select `rubyscan` folder.
+
+## Known Limitations
+
+- Full-page wrapping may lag on pages >1 MB HTML (will optimize in Milestone 2).
+- Does exact‑case matching; no partial/fuzzy search yet.
+- No next/prev arrows (Milestone 2).
 
 ## Next Up
 
-- Implement scanning animation and word wrapping.
-- Add options page functionality.
-- Optimize for performance and accessibility.
+- Viewport‑only wrapping & performance tuning.
+- Next/Prev navigation and hit count.
+- Options page (speed + themes).

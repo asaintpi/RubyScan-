@@ -1,3 +1,3 @@
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("RubyScan installed – skeleton version 0.1.1");
+  console.log("RubyScan installed – version 0.2.0");
 });
