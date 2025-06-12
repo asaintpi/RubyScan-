@@ -1,26 +1,9 @@
-# RubyScan – Milestone 1 (Scan Bar)
+# RubyScan – 0.3.0
 
-Version **0.2.0** introduces the ruby scan animation:
+New in **Milestone 2**
 
-- **Ctrl+F** → RubyScan input.
-- Press **Enter** → horizontal scan bar sweeps the viewport.
-- Every word flashes ruby as line passes.
-- Matching words remain glowing.
+- Viewport‑only wrapping: no more crashes on monster pages.
+- Match navigation: F3 / Shift+F3 or ↑ ↓ buttons; counter shows position.
+- Options page: speed slider, theme select (colour hooks for future), site‑disable placeholder.
 
-## Install / Reload
-
-1. Open **chrome://extensions**.
-2. _If already installed_ → click **Refresh** on RubyScan.
-3. _New install_ → **Load unpacked** → select `rubyscan` folder.
-
-## Known Limitations
-
-- Full-page wrapping may lag on pages >1 MB HTML (will optimize in Milestone 2).
-- Does exact‑case matching; no partial/fuzzy search yet.
-- No next/prev arrows (Milestone 2).
-
-## Next Up
-
-- Viewport‑only wrapping & performance tuning.
-- Next/Prev navigation and hit count.
-- Options page (speed + themes).
+Install / reload → test on a long Wikipedia page, then navigate matches.

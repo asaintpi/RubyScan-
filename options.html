@@ -2,11 +2,20 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <!-- Explicit CSP so Chrome is satisfied -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+    />
     <title>RubyScan Options</title>
     <style>
       body {
         font-family: system-ui, sans-serif;
         margin: 20px;
+      }
+      label {
+        display: block;
+        margin: 10px 0;
       }
       h1 {
         color: #ff0044;
@@ -14,10 +23,25 @@
     </style>
   </head>
   <body>
-    <h1>RubyScan Options (Coming Soon)</h1>
-    <p>
-      Speed, color theme, and site-disable list will be configurable after
-      Milestone 2.
-    </p>
+    <h1>RubyScan Options</h1>
+    <label>
+      Scan speed (ms)
+      <input type="range" id="speed" min="500" max="1500" step="100" />
+      <span id="speed-val"></span>
+    </label>
+    <label>
+      Theme
+      <select id="theme">
+        <option value="ruby">Ruby</option>
+        <option value="emerald">Emerald</option>
+        <option value="sapphire">Sapphire</option>
+      </select>
+    </label>
+    <label
+      ><input type="checkbox" id="disable-site" /> Disable on this site</label
+    >
+
+    <!-- External script to comply with MV3 CSP -->
+    <script src="src/options.js"></script>
   </body>
 </html>

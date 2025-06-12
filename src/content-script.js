@@ -1,16 +1,26 @@
 (() => {
   const KEY_F = "f";
-  const SCAN_DURATION = 1000; // ms – total sweep time
-  let box; // Search UI element
-  let cleanupFns = []; // Active clean‑ups per scan
+  const DEFAULT_SPEED = 1000;
+  const PAGE_MARGIN = 400; // tighter margin for perf
 
-  // === 1. Intercept Ctrl+F ===
+  let SCAN_DURATION = DEFAULT_SPEED;
+  let box, line;
+  let cleanupFns = [];
+  let hits = [];
+  let currentIdx = 0;
+  let observer;
+
+  chrome.storage.sync.get(["speed"], (res) => {
+    if (res.speed) SCAN_DURATION = res.speed;
+  });
+
   document.addEventListener("keydown", (e) => {
     const tag = (e.target || {}).tagName;
     const editable =
       e.target &&
       (e.target.isContentEditable || tag === "INPUT" || tag === "TEXTAREA");
     if (editable) return;
+
     if (
       e.ctrlKey &&
       !e.shiftKey &&
@@ -20,126 +30,142 @@
     ) {
       e.preventDefault();
       openSearchBox();
+      return;
+    }
+    if (box && e.key === "F3") {
+      e.preventDefault();
+      e.shiftKey ? prevMatch() : nextMatch();
     }
   });
 
-  // === 2. Search Box UI ===
   function openSearchBox() {
-    if (box) return; // already open
+    if (box) return;
     box = document.createElement("div");
     box.id = "rubyscan-box";
     box.innerHTML = `
       <input type="text" id="rubyscan-input" placeholder="Search…" autofocus />
-      <button id="rubyscan-close" title="Close">✕</button>
-    `;
+      <span id="rubyscan-count"></span>
+      <button id="rubyscan-prev" title="Prev (Shift+F3)">↑</button>
+      <button id="rubyscan-next" title="Next (F3)">↓</button>
+      <button id="rubyscan-close" title="Close">✕</button>`;
     document.body.appendChild(box);
 
-    const input = document.getElementById("rubyscan-input");
-    // No manual focus call – autofocus attribute handles it.
+    const input = box.querySelector("#rubyscan-input");
+    const countLbl = box.querySelector("#rubyscan-count");
+    box.updateCounter = () => {
+      countLbl.textContent = hits.length
+        ? `${currentIdx + 1} / ${hits.length}`
+        : "";
+    };
 
     input.addEventListener("keydown", (ev) => {
       if (ev.key === "Enter") {
-        const query = input.value.trim();
-        if (query) startScan(query);
-      } else if (ev.key === "Escape") {
-        closeEverything();
-      }
+        const q = input.value.trim();
+        if (q) startScan(q);
+      } else if (ev.key === "Escape") closeEverything();
     });
-    document.getElementById("rubyscan-close").onclick = closeEverything;
+    box.querySelector("#rubyscan-next").onclick = nextMatch;
+    box.querySelector("#rubyscan-prev").onclick = prevMatch;
+    box.querySelector("#rubyscan-close").onclick = closeEverything;
   }
 
-  // === 3. Start Scan Logic ===
   function startScan(query) {
     runCleanups();
-    const line = document.createElement("div");
+    hits = [];
+    currentIdx = 0;
+    const queryLower = query.toLowerCase();
+
+    line = document.createElement("div");
     line.id = "rubyscan-line";
     line.style.setProperty("--rs-duration", SCAN_DURATION + "ms");
     document.body.appendChild(line);
-    const removeLine = () => line.remove();
-    line.addEventListener("animationend", removeLine, { once: true });
-    cleanupFns.push(removeLine);
+    cleanupFns.push(() => line.remove());
 
-    const unwrap = wrapAndAnimateWords(query.toLowerCase(), SCAN_DURATION);
-    cleanupFns.push(unwrap);
+    observer = new IntersectionObserver(handleIntersect, {
+      root: null,
+      rootMargin: `${PAGE_MARGIN}px 0px ${PAGE_MARGIN}px 0px`,
+      threshold: 0,
+    });
+    document
+      .querySelectorAll("body *:not(script):not(style):not(#rubyscan-box)")
+      .forEach((el) => {
+        if ([...el.childNodes].some((n) => n.nodeType === 3))
+          observer.observe(el);
+      });
 
-    const timer = setTimeout(runCleanups, SCAN_DURATION + 300);
+    const timer = setTimeout(() => line.remove(), SCAN_DURATION);
     cleanupFns.push(() => clearTimeout(timer));
+
+    function handleIntersect(entries) {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        wrapElement(entry.target, queryLower);
+        observer.unobserve(entry.target);
+      });
+    }
   }
 
-  // === 4. Word wrapping + animation assignment ===
-  function wrapAndAnimateWords(queryLower, duration) {
-    const spansToUnwrap = [];
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      {
-        acceptNode(node) {
-          if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
-          if (
-            node.parentElement.closest(
-              "#rubyscan-box, script, style, noscript, textarea, input, select, code, pre"
-            )
-          )
-            return NodeFilter.FILTER_REJECT;
-          return NodeFilter.FILTER_ACCEPT;
-        },
-      }
-    );
-
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-    const pageHeight = Math.max(
-      document.documentElement.scrollHeight,
-      document.body.scrollHeight
-    );
-
-    nodes.forEach((textNode) => {
-      if (!textNode.parentElement) return;
+  function wrapElement(el, queryLower) {
+    el.childNodes.forEach((node) => {
+      if (node.nodeType !== 3 || !node.nodeValue.trim()) return;
+      const words = node.nodeValue.split(/(\s+)/);
       const frag = document.createDocumentFragment();
-      const parts = textNode.nodeValue.split(/(\s+)/);
-      parts.forEach((token) => {
-        if (!token) return;
-        if (/\s+/.test(token)) {
-          frag.appendChild(document.createTextNode(token));
+      words.forEach((tok) => {
+        if (/\s+/.test(tok)) {
+          frag.appendChild(document.createTextNode(tok));
         } else {
           const span = document.createElement("span");
           span.className = "rs-word";
-          span.textContent = token;
-
-          const rect = textNode.parentElement.getBoundingClientRect();
-          const absTop = rect.top + window.scrollY;
-          const delay = Math.floor((absTop / pageHeight) * duration);
+          span.textContent = tok;
+          const ratio =
+            (window.scrollY + window.innerHeight / 2) /
+            document.documentElement.scrollHeight;
+          const delay = Math.floor(ratio * SCAN_DURATION);
           span.style.animation = `rs-flash 40ms linear ${delay}ms forwards`;
-
-          if (token.toLowerCase() === queryLower) {
+          if (tok.toLowerCase() === queryLower) {
             span.classList.add("rs-hit");
-            // Halo handled purely in CSS – no extra JS animation needed.
-          } else {
-            spansToUnwrap.push(span);
+            hits.push(span);
+            if (hits.length === 1) {
+              highlightActive(0);
+            }
           }
           frag.appendChild(span);
         }
       });
-      textNode.parentNode.replaceChild(frag, textNode);
+      node.parentNode.replaceChild(frag, node);
     });
-
-    return () => {
-      spansToUnwrap.forEach((span) => {
-        if (span.parentNode)
-          span.replaceWith(document.createTextNode(span.textContent));
-      });
-    };
+    if (box) box.updateCounter();
   }
 
-  // === 5. Cleanup helpers ===
+  function highlightActive(idx) {
+    hits.forEach((el, i) => el.classList.toggle("rs-active", i === idx));
+    if (hits[idx])
+      hits[idx].scrollIntoView({ behavior: "smooth", block: "center" });
+    if (box) box.updateCounter();
+  }
+  function nextMatch() {
+    if (!hits.length) return;
+    currentIdx = (currentIdx + 1) % hits.length;
+    highlightActive(currentIdx);
+  }
+  function prevMatch() {
+    if (!hits.length) return;
+    currentIdx = (currentIdx - 1 + hits.length) % hits.length;
+    highlightActive(currentIdx);
+  }
+
   function runCleanups() {
+    if (observer) observer.disconnect();
     while (cleanupFns.length) {
       try {
         cleanupFns.pop()();
       } catch (_) {}
     }
+    document
+      .querySelectorAll(".rs-word")
+      .forEach((sp) => sp.replaceWith(document.createTextNode(sp.textContent)));
+    hits = [];
   }
-
   function closeEverything() {
     runCleanups();
     if (box) {
